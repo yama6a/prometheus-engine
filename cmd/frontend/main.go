@@ -65,6 +65,8 @@ var (
 
 	targetURLStr = flag.String("query.target-url", fmt.Sprintf("https://monitoring.googleapis.com/v1/projects/%s/location/global/prometheus", projectIDVar),
 		fmt.Sprintf("The URL to forward authenticated requests to. (%s is replaced with the --query.project-id flag.)", projectIDVar))
+
+	rulesEvaluatorURLStr = flag.String("rules.target-url", fmt.Sprintf("http://rule-evaluator.gmp-system:19092"), "The URL to forward requests to the rules evaluator.")
 )
 
 func main() {
@@ -97,6 +99,13 @@ func main() {
 	if err != nil {
 		//nolint:errcheck
 		level.Error(logger).Log("msg", "parsing external URL failed", "err", err)
+		os.Exit(1)
+	}
+
+	rulesEvaluatorURL, err := url.Parse(*rulesEvaluatorURLStr)
+	if err != nil {
+		//nolint:errcheck
+		level.Error(logger).Log("msg", "parsing rules evaluator URL failed", "err", err)
 		os.Exit(1)
 	}
 
@@ -137,6 +146,7 @@ func main() {
 
 		server := &http.Server{Addr: *listenAddress}
 		http.Handle("/metrics", promhttp.HandlerFor(metrics, promhttp.HandlerOpts{Registry: metrics}))
+		//todo: http.Handle("/api/v1/rules", authenticate(forward(logger, targetURL, rulesEvaluatorURL, transport)))
 		http.Handle("/api/", authenticate(forward(logger, targetURL, transport)))
 
 		http.HandleFunc("/-/healthy", func(w http.ResponseWriter, _ *http.Request) {
